@@ -1,0 +1,83 @@
+{
+  "info": {
+    "name": "AI Photo Management Platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "base_url", "value": "http://localhost:8000/api/v1"}
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {"method": "GET", "url": "{{base_url}}/health"}
+    },
+    {
+      "name": "Upload Photo",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/photos/upload",
+        "body": {
+          "mode": "formdata",
+          "formdata": [{"key": "file", "type": "file", "src": "/path/to/photo.jpg"}]
+        }
+      }
+    },
+    {
+      "name": "Scan Directory",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/photos/scan?directory=/data/photos&recursive=true"
+      }
+    },
+    {
+      "name": "List Photos",
+      "request": {"method": "GET", "url": "{{base_url}}/photos/?limit=50"}
+    },
+    {
+      "name": "List Photos by Category",
+      "request": {"method": "GET", "url": "{{base_url}}/photos/?category=receipt"}
+    },
+    {
+      "name": "Search - Natural Language",
+      "request": {"method": "GET", "url": "{{base_url}}/search/?q=beach+vacation&limit=20"}
+    },
+    {
+      "name": "Search - Prescriptions",
+      "request": {"method": "GET", "url": "{{base_url}}/search/?q=doctor+prescription"}
+    },
+    {
+      "name": "List Duplicate Groups",
+      "request": {"method": "GET", "url": "{{base_url}}/duplicates/"}
+    },
+    {
+      "name": "Duplicate Stats",
+      "request": {"method": "GET", "url": "{{base_url}}/duplicates/stats"}
+    },
+    {
+      "name": "List People / Faces",
+      "request": {"method": "GET", "url": "{{base_url}}/faces/"}
+    },
+    {
+      "name": "Name a Person",
+      "request": {
+        "method": "PATCH",
+        "url": "{{base_url}}/faces/PERSON_ID_HERE/name?name=John"
+      }
+    },
+    {
+      "name": "Category Counts",
+      "request": {"method": "GET", "url": "{{base_url}}/categories/"}
+    },
+    {
+      "name": "Google Auth URL",
+      "request": {"method": "GET", "url": "{{base_url}}/photos/google/auth-url"}
+    },
+    {
+      "name": "Google Photos Sync",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/photos/google/sync?access_token=YOUR_TOKEN&max_photos=1000"
+      }
+    }
+  ]
+}
