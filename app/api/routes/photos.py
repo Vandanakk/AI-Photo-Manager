@@ -1,7 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 import uuid
+import os
 
 from app.core.database import get_db
 from app.services.photo_service import (
@@ -135,6 +137,15 @@ async def get_photo(photo_id: str, db: AsyncSession = Depends(get_db)):
         "duplicate_of": str(photo.duplicate_of_id) if photo.duplicate_of_id else None,
         "md5_hash": photo.md5_hash,
     }
+
+
+@router.get("/{photo_id}/file")
+async def get_photo_file(photo_id: str, db: AsyncSession = Depends(get_db)):
+    """Serve the raw photo image file for browser display."""
+    photo = await get_photo_by_id(db, photo_id)
+    if not photo or not photo.original_path or not os.path.exists(photo.original_path):
+        raise HTTPException(404, "Photo file not found")
+    return FileResponse(photo.original_path, media_type=photo.mime_type or "image/jpeg")
 
 
 # --- Google Photos OAuth ---
