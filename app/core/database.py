@@ -17,6 +17,18 @@ AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
 
+# Dedicated engine with NullPool for Celery worker tasks using asyncio.run
+from sqlalchemy.pool import NullPool
+worker_engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,
+    poolclass=NullPool,
+)
+
+WorkerAsyncSessionLocal = async_sessionmaker(
+    worker_engine, class_=AsyncSession, expire_on_commit=False
+)
+
 
 class Base(DeclarativeBase):
     pass

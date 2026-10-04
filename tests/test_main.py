@@ -17,7 +17,7 @@ from app.services.categorization_service import (
     _fallback_categorize, cosine_similarity, CATEGORIES
 )
 from app.services.search_service import parse_category_from_query
-from PIL import Image
+from PIL import Image, ImageDraw
 import tempfile
 import os
 
@@ -111,8 +111,14 @@ def test_perceptual_hash_similar_images(sample_image):
 
 
 def test_perceptual_hash_different_images():
-    img1 = Image.new("RGB", (100, 100), color=(255, 0, 0))
-    img2 = Image.new("RGB", (100, 100), color=(0, 0, 255))
+    img1 = Image.new("RGB", (100, 100), color=(255, 255, 255))
+    draw1 = ImageDraw.Draw(img1)
+    draw1.rectangle([0, 0, 50, 100], fill=(0, 0, 0))
+
+    img2 = Image.new("RGB", (100, 100), color=(255, 255, 255))
+    draw2 = ImageDraw.Draw(img2)
+    draw2.rectangle([0, 0, 100, 50], fill=(0, 0, 0))
+
     phash1, _ = compute_perceptual_hashes(img1)
     phash2, _ = compute_perceptual_hashes(img2)
     dist = hamming_distance(phash1, phash2)
@@ -120,7 +126,7 @@ def test_perceptual_hash_different_images():
 
 
 def test_hamming_distance_identical():
-    h = "aabbccdd"
+    h = "aabbccddeeff0011"
     assert hamming_distance(h, h) == 0
 
 
@@ -226,8 +232,12 @@ async def test_faces_endpoint_returns_200(client):
 
 @pytest.mark.asyncio
 async def test_categories_endpoint(client):
-    with patch("app.api.routes.categories.get_db"), \
-         patch("sqlalchemy.ext.asyncio.AsyncSession.execute"):
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    mock_result = MagicMock()
+    mock_result.all.return_value = []
+    with patch.object(AsyncSession, "execute", new_callable=AsyncMock) as mock_exec:
+        mock_exec.return_value = mock_result
         response = await client.get("/api/v1/categories/")
     assert response.status_code in (200, 500)
 

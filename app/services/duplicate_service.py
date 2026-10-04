@@ -47,7 +47,7 @@ def hamming_distance(hash1: str, hash2: str) -> int:
 async def find_exact_duplicate(db: AsyncSession, md5: str, current_id: Optional[str] = None) -> Optional[Photo]:
     stmt = select(Photo).where(Photo.md5_hash == md5, Photo.is_duplicate == False)
     if current_id:
-        stmt = stmt.where(Photo.id != uuid.UUID(current_id))
+        stmt = stmt.where(Photo.id != str(current_id))
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -59,7 +59,7 @@ async def find_near_duplicate(db: AsyncSession, phash: str, current_id: Optional
     """
     stmt = select(Photo).where(Photo.phash != None, Photo.is_duplicate == False)
     if current_id:
-        stmt = stmt.where(Photo.id != uuid.UUID(current_id))
+        stmt = stmt.where(Photo.id != str(current_id))
 
     result = await db.execute(stmt)
     candidates = result.scalars().all()

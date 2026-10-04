@@ -1,13 +1,14 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 import uuid
 
 from app.core.database import get_db
 from app.services.photo_service import (
-    save_uploaded_file, process_photo, scan_local_directory,
+    save_uploaded_file, create_initial_photo, process_photo, scan_local_directory,
     get_photo_by_id, list_photos
 )
+from app.core.tasks import process_photo_task
 from app.services.google_photos_service import (
     get_auth_url, exchange_code_for_tokens, sync_all_google_photos, download_google_photo
 )
@@ -19,7 +20,6 @@ router = APIRouter()
 
 @router.post("/upload")
 async def upload_photo(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
@@ -32,7 +32,8 @@ async def upload_photo(
         raise HTTPException(413, f"File too large. Max {settings.UPLOAD_MAX_SIZE_MB}MB")
 
     file_path = await save_uploaded_file(content, file.filename)
-    photo = await process_photo(db, file_path, file.filename)
+    photo = await create_initial_photo(db, file_path, file.filename)
+    process_photo_task.delay(file_path, file.filename, PhotoSource.LOCAL.value)
 
     return {
         "photo_id": str(photo.id),
@@ -40,6 +41,7 @@ async def upload_photo(
         "category": photo.category,
         "is_duplicate": photo.is_duplicate,
         "duplicate_of": str(photo.duplicate_of_id) if photo.duplicate_of_id else None,
+        "is_processed": photo.is_processed,
     }
 
 
@@ -48,19 +50,21 @@ async def upload_batch(
     files: List[UploadFile] = File(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Upload multiple photos at once."""
+    """Upload multiple photos at once and queue them for AI processing."""
     results = []
     for file in files:
         if not file.content_type.startswith("image/"):
             continue
         content = await file.read()
         file_path = await save_uploaded_file(content, file.filename)
-        photo = await process_photo(db, file_path, file.filename)
+        photo = await create_initial_photo(db, file_path, file.filename)
+        process_photo_task.delay(file_path, file.filename, PhotoSource.LOCAL.value)
         results.append({
             "photo_id": str(photo.id),
             "filename": photo.filename,
             "category": photo.category,
             "is_duplicate": photo.is_duplicate,
+            "is_processed": photo.is_processed,
         })
     return {"uploaded": len(results), "results": results}
 

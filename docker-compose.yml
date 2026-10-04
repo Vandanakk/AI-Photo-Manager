@@ -9,11 +9,13 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://photouser:photopass@db:5432/photodb
       - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
       - LOCAL_STORAGE_PATH=/data/photos
       - DEBUG=false
     volumes:
       - photo_data:/data/photos
       - ./app:/app/app  # live reload in dev
+      - ./tests:/app/tests
     depends_on:
       db:
         condition: service_healthy
@@ -69,6 +71,7 @@ services:
       - LOCAL_STORAGE_PATH=/data/photos
     volumes:
       - photo_data:/data/photos
+      - ./app:/app/app
     depends_on:
       - db
       - redis

@@ -9,15 +9,14 @@ logger = logging.getLogger(__name__)
 def process_photo_task(self, file_path: str, filename: str, source: str = "local"):
     """Background task to process a single photo through the AI pipeline."""
     try:
-        from app.core.database import AsyncSessionLocal
+        from app.core.database import WorkerAsyncSessionLocal
         from app.services.photo_service import process_photo
         from app.models.models import PhotoSource
 
         async def _run():
-            async with AsyncSessionLocal() as db:
+            async with WorkerAsyncSessionLocal() as db:
                 photo_source = PhotoSource(source)
                 photo = await process_photo(db, file_path, filename, photo_source)
-                await db.commit()
                 return str(photo.id)
 
         return asyncio.run(_run())
@@ -29,11 +28,11 @@ def process_photo_task(self, file_path: str, filename: str, source: str = "local
 @celery_app.task
 def batch_scan_directory_task(directory: str, recursive: bool = True):
     """Background task to scan and process a full directory."""
-    from app.core.database import AsyncSessionLocal
+    from app.core.database import WorkerAsyncSessionLocal
     from app.services.photo_service import scan_local_directory
 
     async def _run():
-        async with AsyncSessionLocal() as db:
+        async with WorkerAsyncSessionLocal() as db:
             result = await scan_local_directory(db, directory, recursive)
             return result
 

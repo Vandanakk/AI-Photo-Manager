@@ -61,6 +61,29 @@ async def save_uploaded_file(file_content: bytes, filename: str) -> str:
     return str(dest)
 
 
+async def create_initial_photo(
+    db: AsyncSession,
+    file_path: str,
+    filename: str,
+    source: PhotoSource = PhotoSource.LOCAL,
+) -> Photo:
+    """Create an initial unprocessed Photo record in the database."""
+    file_size = os.path.getsize(file_path) if os.path.exists(file_path) else None
+    photo = Photo(
+        filename=filename,
+        original_path=file_path,
+        source=source,
+        file_size=file_size,
+        is_processed=False,
+        is_duplicate=False,
+        category=PhotoCategory.OTHER,
+    )
+    db.add(photo)
+    await db.commit()
+    await db.refresh(photo)
+    return photo
+
+
 async def process_photo(
     db: AsyncSession,
     file_path: str,
@@ -71,29 +94,38 @@ async def process_photo(
     """Full AI processing pipeline for a single photo."""
 
     # Check if already processed
-    existing = await db.execute(select(Photo).where(Photo.original_path == file_path))
-    if existing.scalar_one_or_none():
+    result = await db.execute(select(Photo).where(Photo.original_path == file_path))
+    photo = result.scalar_one_or_none()
+    if photo and photo.is_processed:
         logger.debug(f"Photo already processed: {file_path}")
-        return existing.scalar_one_or_none()
+        return photo
 
     image = Image.open(file_path).convert("RGB")
     exif_data = extract_exif_data(image)
     taken_at = parse_taken_at(exif_data)
     file_size = os.path.getsize(file_path)
 
-    photo = Photo(
-        filename=filename,
-        original_path=file_path,
-        source=source,
-        google_photo_id=google_photo_id,
-        file_size=file_size,
-        width=image.width,
-        height=image.height,
-        mime_type=Image.MIME.get(image.format, "image/jpeg"),
-        taken_at=taken_at,
-    )
-    db.add(photo)
-    await db.flush()  # get photo.id
+    if not photo:
+        photo = Photo(
+            filename=filename,
+            original_path=file_path,
+            source=source,
+            google_photo_id=google_photo_id,
+            file_size=file_size,
+            width=image.width,
+            height=image.height,
+            mime_type=Image.MIME.get(image.format, "image/jpeg"),
+            taken_at=taken_at,
+        )
+        db.add(photo)
+        await db.flush()  # get photo.id
+    else:
+        photo.file_size = file_size
+        photo.width = image.width
+        photo.height = image.height
+        photo.mime_type = Image.MIME.get(image.format, "image/jpeg")
+        if taken_at:
+            photo.taken_at = taken_at
 
     # 1. Duplicate detection
     await process_duplicates_for_photo(db, photo, image, file_path)
@@ -110,6 +142,8 @@ async def process_photo(
 
     photo.is_processed = True
     db.add(photo)
+    await db.commit()
+    await db.refresh(photo)
 
     logger.info(f"Processed: {filename} → {photo.category} (dup={photo.is_duplicate})")
     return photo
@@ -157,7 +191,7 @@ async def scan_local_directory(
 
 
 async def get_photo_by_id(db: AsyncSession, photo_id: str) -> Optional[Photo]:
-    result = await db.execute(select(Photo).where(Photo.id == uuid.UUID(photo_id)))
+    result = await db.execute(select(Photo).where(Photo.id == str(photo_id)))
     return result.scalar_one_or_none()
 
 

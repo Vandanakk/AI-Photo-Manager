@@ -144,7 +144,7 @@ async def get_persons_with_photos(db: AsyncSession, skip: int = 0, limit: int = 
 
 
 async def rename_person(db: AsyncSession, person_id: str, name: str) -> Optional[Person]:
-    stmt = select(Person).where(Person.id == uuid.UUID(person_id))
+    stmt = select(Person).where(Person.id == str(person_id))
     result = await db.execute(stmt)
     person = result.scalar_one_or_none()
     if person:

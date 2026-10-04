@@ -10,19 +10,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.models import Photo, PhotoCategory
-from app.services.categorization_service import cosine_similarity
+from app.services.categorization_service import cosine_similarity, get_clip_model
 
 logger = logging.getLogger(__name__)
 
 
 def get_text_embedding(query: str) -> Optional[List[float]]:
     try:
-        from transformers import CLIPProcessor, CLIPModel
         import torch
 
-        processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-        model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        model.eval()
+        model, processor = get_clip_model()
+        if model is None or processor is None:
+            return None
 
         inputs = processor(text=[query], return_tensors="pt", padding=True)
         with torch.no_grad():

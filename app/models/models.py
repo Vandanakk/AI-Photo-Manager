@@ -59,7 +59,6 @@ class Photo(Base):
     duplicate_of = relationship("Photo", remote_side=[id], foreign_keys=[duplicate_of_id])
 
     __table_args__ = (
-        Index("ix_photos_phash", "phash"),
         Index("ix_photos_category", "category"),
         Index("ix_photos_taken_at", "taken_at"),
     )
